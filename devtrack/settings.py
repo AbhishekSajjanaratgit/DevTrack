@@ -63,11 +63,11 @@ REST_FRAMEWORK = {
 
     # JSON only. The browsalbe API renderer needs templates, which is removed
     'DEFAULT_RENDERER_CLASSES' : [
-        'rest_framework.renderes.JSONRenderer',
+        'rest_framework.renderers.JSONRenderer',
     ],
 
     'DEFAULT_PARSER_CLASSES' : [
-        'rest_framework.parsers.JsonParser',
+        'rest_framework.parsers.JSONParser',
     ],
 }
 

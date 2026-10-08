@@ -62,7 +62,11 @@ class ReporterView(APIView):
         except ValueError as e:
             return error(str(e))
 
-        reporters = read_json(reporter.to_dict())
+        reporters = read_json(REPORTERS_FILE)
+        if find_by_id(reporters, reporter.id) is not None:
+            return error("Reporter id already exists")
+
+        reporters.append(reporter.to_dict())
         write_json(REPORTERS_FILE, reporters)
 
         return Response(reporter.to_dict(), status=status.HTTP_201_CREATED)
@@ -71,7 +75,7 @@ class IssueView(APIView):
 
     def get(self, request):
         issues = read_json(ISSUES_FILE)
-        raw_id = request.quey_params.get("id")
+        raw_id = request.query_params.get("id")
         status_filter = request.query_params.get("status")
 
         # id takes priority over status when both are sent
