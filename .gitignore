@@ -1,2 +1,14 @@
+# Virtual environment
 .venv/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Project data (JSON "database")
 database/
+*.json.tmp
+
+# Editors
+.vscode/
+.idea/
