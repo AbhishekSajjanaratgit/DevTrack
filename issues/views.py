@@ -71,3 +71,77 @@ class IssueView(APIView):
 
     def get(self, request):
         issues = read_json(ISSUES_FILE)
+        raw_id = request.quey_params.get("id")
+        status_filter = request.query_params.get("status")
+
+        # id takes priority over status when both are sent
+
+        if raw_id is not None:
+            try:
+                issue_id = int(raw_id)
+            except ValueError:
+                return error("Id must be an Integer")
+
+            issue =find_by_id(issues, issue_id)
+            if issue is None:
+                return error("Issue not found", status.HTTP_404_NOT_FOUND)
+            return Response(issue, status.HTTP_200_OK)
+
+        if status_filter is not None:
+            if status_filter not in VALID_STATUSES:
+                return error(
+                    "Invalid status. Must be one of :"
+                    + ", ".join(sorted(VALID_STATUSES))
+                )
+            issues = [i for i in issues if i["status"] == status_filter]
+
+        return Response(issues, status.HTTP_200_OK)
+
+    def post(self, request):
+        data = request.data
+        if not isinstance(data, dict):
+            return error("Request body must be a JSON object")
+
+        missing = missing_fileds(
+            data,
+            ["id","title","description","status","priority","reporter_id"]
+        )
+        if missing:
+            return error(f"Missing fields : {', '.join(missing)}")
+
+        # Pick the subclass from the priority
+        fields = (
+            data["id"], data["title"], data["description"], data["status"], data["priority"], data["reporter_id"],
+        )
+
+        if data["priority"] == "critical":
+            issue = CriticalIssue(*fields)
+        elif data["priority"] == "low":
+            issue = LowPriorityIssue(*fields)
+        else:
+            issue = Issue(*fields)
+
+        try:
+            issue.validate()
+        except ValueError as e:
+            return error(str(e))
+        except TypeError:
+            return error("status and priority must be strings")
+
+        # Validation passed. Now check with the stored data
+        if find_by_id(read_json(REPORTERS_FILE), issue.reporter_id) is None:
+            return error(f"Reporter with id {issue.reporter_id} does not exists.")
+
+        issues = read_json(ISSUES_FILE)
+        if find_by_id(issues, issue.id) is not None:
+            return error("Issue id already exists.")
+
+        issues.append(issue.to_dict())
+        write_json(ISSUES_FILE, issues)
+
+        response_data = issue.to_dict()
+        response_data["message"] = issue.describe()
+
+        return Response(response_data, status=status.HTTP_201_CREATED)
+    
+
