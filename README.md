@@ -267,6 +267,37 @@ DevTrack does not use DRF's `serializers.Serializer` classes. The brief puts val
 
 `to_dict()` copies `self.__dict__`, so every attribute must be JSON-friendly. That is why `created_at` is stored as a string (`str(datetime.now())`) and not as a `datetime` object.
 
+## One design decision made in this project
+
+**All reading and writing of the JSON files lives in one module, `issues/storage.py`.** Views never call `open()`, and models never touch files.
+
+The brief only says to store data in `issues.json` and `reporters.json`, and its example opens the file directly inside a view. A separate storage module is a design choice made on top of that.
+
+### Why
+
+- **One job per file.** `models.py` decides what a valid Reporter or Issue is, `views.py` handles HTTP, and `storage.py` handles persistence. Mixing storage into the views would give `views.py` two unrelated reasons to change.
+- **A change to the storage touches one file.** If the JSON files are replaced by SQLite or another database, only `storage.py` is rewritten and the views stay the same.
+- **No repeated code.** Opening, parsing and error handling would otherwise be copied into four view methods.
+- **Bugs are fixed once.** File handling is where this project's real risks are (a path that depends on where the server starts, a corrupt file being mistaken for an empty one). In one module, each fix applies to every endpoint.
+- **Views stay readable.** Each view reads as the steps of the feature (find, validate, append, save) without file-handling boilerplate.
+- **Easier to test.** Storage can be pointed at a temporary file without touching real data.
+
+### Without and with the module
+
+```python
+# Without: repeated in every view method
+with open(settings.BASE_DIR / "database" / "issues.json", "r") as f:
+    issues = json.load(f)
+
+# With: one line in each view
+issues = read_json(ISSUES_FILE)
+write_json(ISSUES_FILE, issues)
+```
+
+### Trade-off
+
+It adds one extra file and one extra layer. For a project this small, calling `open()` directly in the views, as the brief shows, would also work.
+
 ## Configuration notes
 
 `settings.py` is trimmed on purpose:
