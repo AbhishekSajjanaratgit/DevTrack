@@ -176,6 +176,58 @@ Errors return the status code and a body in this form:
 
 Malformed JSON is rejected by Django REST Framework with a 400 and a `detail` message instead of `error`.
 
+## What each endpoint does
+
+### `POST /api/reporters/`: create a reporter
+
+- Registers a new person who can file issues.
+- Body: `id`, `name`, `email`, `team`.
+- Success: `201 Created` with the saved reporter.
+- Errors: `400` for a missing field, a validation failure or a duplicate id.
+
+### `GET /api/reporters/`: list all reporters
+
+- Returns every reporter stored in `reporters.json`.
+- Success: `200 OK` with a list. The list is empty (`[]`) when no reporter has been created.
+
+### `GET /api/reporters/?id=1`: get one reporter
+
+- Returns the single reporter whose `id` matches the query parameter.
+- Success: `200 OK` with the reporter.
+- Errors: `404` with `{"error": "Reporter not found"}` if no reporter has that id, and `400` if `id` is not an integer (for example `?id=abc`).
+
+### `POST /api/issues/`: create an issue
+
+- Files a new bug report or task for an existing reporter.
+- Body: `id`, `title`, `description`, `status`, `priority`, `reporter_id`.
+- The class is chosen from the priority: `critical` gives `CriticalIssue`, `low` gives `LowPriorityIssue`, anything else gives `Issue`.
+- The issue is validated, the `reporter_id` must belong to an existing reporter, and the `id` must be unused. Nothing is written to the file unless every check passes.
+- Success: `201 Created` with the saved issue plus a `message` built by the chosen class. The `message` appears only in the response and is never saved.
+- Errors: `400` for a missing field, a validation failure (for example `Title cannot be empty`), an unknown reporter or a duplicate id.
+
+### `GET /api/issues/`: list all issues
+
+- Returns every issue stored in `issues.json`.
+- Success: `200 OK` with a list, which may be empty.
+
+### `GET /api/issues/?id=1`: get one issue
+
+- Returns the single issue whose `id` matches the query parameter.
+- Success: `200 OK` with the issue.
+- Errors: `404` with `{"error": "Issue not found"}` and `400` for a non-integer `id`.
+- If `status` is sent as well, `id` takes priority and `status` is ignored.
+
+### `GET /api/issues/?status=open`: filter issues by status
+
+- Returns only the issues whose `status` equals the query value.
+- Allowed values: `open`, `in_progress`, `resolved`, `closed`.
+- Success: `200 OK` with the matching issues (an empty list if none match).
+- Errors: `400` if the value is not one of the four allowed statuses.
+
+### Any other method
+
+- `PUT`, `PATCH`, `DELETE` and similar methods return `405 Method Not Allowed`. The API only supports create and read.
+
 ## How it works
 
 1. A request reaches `devtrack/urls.py`, which sends `api/` to `issues/urls.py`.
@@ -231,6 +283,19 @@ DevTrack does not use DRF's `serializers.Serializer` classes. The brief puts val
 - **Invalid JSON in a data file** raises an error instead of being treated as empty, so a hand-edited mistake cannot silently erase your data.
 - Development settings only (`DEBUG = True`). Do not deploy as is.
 
-## Testing
+## Test Screenshots : 
+#### Success Endpoint tests :
 
-Test with Postman. `DevTrack_API_tests.xlsx` lists every request to run, with the body and expected result for each, and tracks pass or fail.
+- testing the endpoint http://127.0.0.1:8000/api/reporters/ with METHOD-TYPE : POST
+![alt text](test-images/ENDPOINT-api-reporters-post.png)
+
+- testing the endpoint http://127.0.0.1:8000/api/reporters/ with METHOD-TYPE : GET
+![alt text](test-images/ENDPOINT-api-reporters-get.png)
+
+#### Failure Endpoint tests :
+
+- testing the endpoint http://127.0.0.1:8000/api/reporters/?id=21 with METHOD-TYPE : GET
+![alt text](test-images/ENDPOINT-api-reporters-id-get.png)
+
+- testing the endpoint http://127.0.0.1:8000/api/issues/?id=abc with METHOD-TYPE : GET
+![alt text](test-images/ENDPOINT-api-issues-id-abc-get.png)
